@@ -1,7 +1,6 @@
 {
   "name": "KAGUYA",
   "version": "1.0.8",
-  "type": "module",
   "description": "بوت ماسنجر !",
   "main": "index.js",
   "scripts": {
@@ -27,6 +26,7 @@
     "discord.js": "^14.27.0",
     "express": "^4.21.1",
     "figlet": "^1.11.4",
+    "fs": "^0.0.1-security",
     "fs-extra": "^11.4.0",
     "gradient-string": "^2.0.2",
     "https-proxy-agent": "^9.1.0",
@@ -45,6 +45,7 @@
     "nodemon": "^3.1.14",
     "npmlog": "^7.0.1",
     "pastebin-js": "^1.0.6",
+    "path": "^0.12.7",
     "prodia.js": "^3.0.0",
     "request": "^2.88.2",
     "semver": "^7.8.5",

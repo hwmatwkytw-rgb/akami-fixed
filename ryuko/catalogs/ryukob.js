@@ -183,6 +183,11 @@ for (const property in listPackage) {
     global.nodemodule[property] = require(property)
   } catch (e) { }
 }
+for (const builtin of listbuiltinModules) {
+  try {
+    global.nodemodule[builtin] = require(builtin)
+  } catch (e) { }
+}
 
 const langFile = (readFileSync(`${__dirname}/languages/${global.config.language || "en"}.lang`, {
   encoding: 'utf-8'
