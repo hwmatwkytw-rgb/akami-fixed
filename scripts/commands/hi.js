@@ -4,7 +4,7 @@ module.exports.config = {
   hasPermssion: 2,
   credits: "zach",
   description: "أهلا",
-  commandCategory: "الــــجـــروب",
+  category: "الــــجـــروب",
   usages: "[النص]",
   cooldowns: 5
 }

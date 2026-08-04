@@ -17,14 +17,18 @@ module.exports.config = {
 };
 
 module.exports.onLoad = async() => {
-    const { resolve } = global.nodemodule["path"];
-    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
-    const { downloadFile } = global.utils;
-    const dirMaterial = __dirname + `/cache/canvas/`;
-    const path = resolve(__dirname, 'cache/canvas', 'marrywi.png');
-    if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
-    if (!existsSync(path)) await downloadFile("https://i.imgur.com/4ATHG80.png", path);
-}
+    try {
+      const { resolve } = global.nodemodule["path"];
+      const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+      const { downloadFile } = global.utils;
+      const dirMaterial = __dirname + `/cache/canvas/`;
+      const path = resolve(__dirname, 'cache/canvas', 'marrywi.png');
+      if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
+      if (!existsSync(path)) await downloadFile("https://i.ibb.co/fz3MZTC4/D5-POL5n-UYAAJCTb.jpg", path);
+    } catch (e) {
+      console.log("fun-married: failed to load canvas material:", e);
+    }
+  }
 
 async function makeImage({ one, two }) {
     const fs = global.nodemodule["fs-extra"];

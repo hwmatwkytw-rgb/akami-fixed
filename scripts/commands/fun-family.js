@@ -57,7 +57,7 @@ module.exports.run = async ({ event, api, args }) => {
     for(let qtv of arrob) {
       arrad.push(qtv.id)
     };
-    const background = await Canvas.loadImage("https://i.imgur.com/5AaxqG6.jpg");
+    const background = await Canvas.loadImage("https://i.ibb.co/sqJwkY9/neon-frame-transparent-background-16-700x700-1.png");
     
     var idtv = threadInfo.participantIDs;
   

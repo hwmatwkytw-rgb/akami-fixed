@@ -3,7 +3,6 @@ var utils = require("../utils");
 // @NethWs3Dev
 var mqtt = require('mqtt');
 var websocket = require('websocket-stream');
-var HttpsProxyAgent = require('https-proxy-agent');
 const EventEmitter = require('events');
 
 var identity = function() {};
@@ -34,7 +33,7 @@ var topics = [
 	"/webrtc_response",
 ];
 
-function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
+async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
   //Don't really know what this does but I think it's for the active state?
   //TODO: Move to ctx when implemented
   var chatOn = ctx.globalOptions.online;
@@ -101,6 +100,7 @@ function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
   };
 
   if (typeof ctx.globalOptions.proxy != "undefined") {
+    const { default: HttpsProxyAgent } = await import('https-proxy-agent');
     var agent = new HttpsProxyAgent(ctx.globalOptions.proxy);
     options.wsOptions.agent = agent;
   }
@@ -108,17 +108,22 @@ function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
   ctx.mqttClient = new mqtt.Client(_ => websocket(host, options.wsOptions), options);
 
   var mqttClient = ctx.mqttClient;
-
+  var stopping = false;
 
   function stopListening() {
-    if (mqttClient) {
+    if (stopping) return;
+    stopping = true;
+    if (!mqttClient) return;
+    try {
       mqttClient.unsubscribe("/webrtc");
       mqttClient.unsubscribe("/rtc_multi");
       mqttClient.unsubscribe("/onevc");
-      mqttClient.publish("/browser_close", "{}");
+      try { mqttClient.publish("/browser_close", "{}"); } catch (e) {}
       mqttClient.end(false, function(...data) {
         ctx.mqttClient = null; mqttClient = null;
       });
+    } catch (e) {
+      ctx.mqttClient = null; mqttClient = null;
     }
   }
   
@@ -638,30 +643,29 @@ function markDelivery(ctx, api, threadID, messageID) {
 
 module.exports = function(defaultFuncs, api, ctx) {
   var globalCallback = identity;
-  getSeqID = function getSeqID() {
+  getSeqID = async function getSeqID() {
     ctx.t_mqttCalled = false;
-    defaultFuncs
-      .post("https://www.facebook.com/api/graphqlbatch/", ctx.jar, form)
-      .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
-      .then((resData) => {
-        if (utils.getType(resData) != "Array")
+    try {
+      const resData = await defaultFuncs
+        .post("https://www.facebook.com/api/graphqlbatch/", ctx.jar, form)
+        .then(utils.parseAndCheckLogin(ctx, defaultFuncs));
+      if (utils.getType(resData) != "Array")
         throw { error: "Not logged in", res: resData };
-        if (resData[resData.length - 1].error_results > 0) {
-          const errorL = resData[0].o0.errors;
-          throw errorL;
-        }
-        if (resData[resData.length - 1].successful_results === 0) throw { error: "getSeqId: there was no successful_results", res: resData };
-        if (resData[0].o0.data.viewer.message_threads.sync_sequence_id) {
-          ctx.lastSeqId = resData[0].o0.data.viewer.message_threads.sync_sequence_id;
-          listenMqtt(defaultFuncs, api, ctx, globalCallback);
-        } else throw { error: "getSeqId: no sync_sequence_id found.", res: resData };
-      })
-      .catch((err) => {
-        if (utils.getType(err) == "Object" && err.error === "Not logged in") {
-          ctx.loggedIn = false;
-        }
-        return globalCallback(err);
-      });
+      if (resData[resData.length - 1].error_results > 0) {
+        const errorL = resData[0].o0.errors;
+        throw errorL;
+      }
+      if (resData[resData.length - 1].successful_results === 0) throw { error: "getSeqId: there was no successful_results", res: resData };
+      if (resData[0].o0.data.viewer.message_threads.sync_sequence_id) {
+        ctx.lastSeqId = resData[0].o0.data.viewer.message_threads.sync_sequence_id;
+        await listenMqtt(defaultFuncs, api, ctx, globalCallback);
+      } else throw { error: "getSeqId: no sync_sequence_id found.", res: resData };
+    } catch (err) {
+      if (utils.getType(err) == "Object" && err.error === "Not logged in") {
+        ctx.loggedIn = false;
+      }
+      return globalCallback(err);
+    }
   };
 
   return async function(callback) {
@@ -693,9 +697,9 @@ module.exports = function(defaultFuncs, api, ctx) {
       })
     };
 
-    if (!ctx.firstListen || !ctx.lastSeqId) getSeqID();
+    if (!ctx.firstListen || !ctx.lastSeqId) await getSeqID();
     else {
-      listenMqtt(defaultFuncs, api, ctx, globalCallback);
+      await listenMqtt(defaultFuncs, api, ctx, globalCallback);
     }
     ctx.firstListen = false;
     return msgEmitter;

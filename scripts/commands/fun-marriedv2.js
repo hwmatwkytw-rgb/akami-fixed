@@ -17,14 +17,18 @@ module.exports.config = {
 };
 
 module.exports.onLoad = async() => {
-    const { resolve } = global.nodemodule["path"];
-    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
-    const { downloadFile } = global.utils;
-    const dirMaterial = __dirname + `/cache/canvas/`;
-    const path = resolve(__dirname, 'cache/canvas', 'marriedv02.png');
-    if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
-    if (!existsSync(path)) await downloadFile("https://i.ibb.co/mc9KNm1/1619885987-21-pibig-info-p-anime-romantika-svadba-anime-krasivo-24.jpg", path);
-}
+    try {
+      const { resolve } = global.nodemodule["path"];
+      const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+      const { downloadFile } = global.utils;
+      const dirMaterial = __dirname + `/cache/canvas/`;
+      const path = resolve(__dirname, 'cache/canvas', 'marriedv02.png');
+      if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
+      if (!existsSync(path)) await downloadFile("https://i.ibb.co/mc9KNm1/1619885987-21-pibig-info-p-anime-romantika-svadba-anime-krasivo-24.jpg", path);
+    } catch (e) {
+      console.log("fun-marriedv2: failed to load canvas material:", e);
+    }
+  }
 
 async function makeImage({ one, two }) {
     const fs = global.nodemodule["fs-extra"];

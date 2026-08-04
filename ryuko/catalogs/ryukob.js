@@ -190,7 +190,7 @@ const langFile = (readFileSync(`${__dirname}/languages/${global.config.language 
 const langData = langFile.filter(item => item.indexOf('#') != 0 && item != '');
 for (const item of langData) {
   const getSeparator = item.indexOf('=');
-  const itemKey = item.slice(0, getSeparator);
+  const itemKey = item.slice(0, getSeparator).trim();
   const itemValue = item.slice(getSeparator + 1, item.length);
   const head = itemKey.slice(0, itemKey.indexOf('.'));
   const key = itemKey.replace(head + '.', '');
@@ -227,17 +227,14 @@ try {
     logger.error(`please enter your bot prefix in ${chalk.blueBright('ryuko.json')} file`)
     process.exit(0);
   }
-  if (global.config.author != "ryuko") {
-    logger.error(`detected : author was changed at ${chalk.blueBright('ryuko.json')}`);
-    process.exit(0);
+  if (global.config.author && global.config.author !== "ryuko") {
+    logger.warn(`note : author is changed at ${chalk.blueBright('ryuko.json')}, continuing...`);
   }
-  if (packages.author != "ryuko") {
-    logger.error(`detected : author was changed at ${chalk.blueBright('package.json')}`);
-    process.exit(0);
+  if (packages.author && packages.author !== "ryuko") {
+    logger.warn(`note : author is changed at ${chalk.blueBright('package.json')}, continuing...`);
   }
-  if (packages.name != "ryuko") {
-    logger.error(`detected : project name was changed at ${chalk.blueBright('package.json')}`);
-    process.exit(0);
+  if (packages.name && packages.name !== "ryuko") {
+    logger.warn(`note : project name is changed at ${chalk.blueBright('package.json')}, continuing...`);
   }
 } catch (error) {
   return;
@@ -338,17 +335,16 @@ function onBot({ models: botModel }) {
             }
 
 
-            if (module.onLoad) {
-              const moduleData = {};
-              moduleData.api = api;
-              moduleData.models = botModel;
-              try {
-                module.onLoad(moduleData);
-              } catch (error) {
-                const errorMessage = "unable to load the onLoad function of the module."
-                throw new Error(errorMessage, 'error');
+              if (module.onLoad) {
+                const moduleData = {};
+                moduleData.api = api;
+                moduleData.models = botModel;
+                try {
+                  module.onLoad(moduleData);
+                } catch (error) {
+                  console.error(`failed to load onLoad for command ${chalk.blueBright(config.name)}:`, error);
+                }
               }
-            }
 
             if (module.handleEvent) global.client.eventRegistered.push(config.name);
             global.client.commands.set(config.name, module);

@@ -5,7 +5,7 @@ const config = require('../../ryuko.json');
 const package = require('../../package.json');
 const FormData = require('form-data');
 const { resolve, basename } = require('path')
-const { writeFileSync, createReadStream, unlinkSync } = require('fs');
+const { writeFileSync, createReadStream, unlinkSync, promises: fsPromises } = require('fs');
 const aes = require("aes-js");
 
 module.exports.throwError = function (command, threadID, messageID) {
@@ -80,22 +80,56 @@ module.exports.cleanAnilistHTML = function (text) {
 }
 
 module.exports.downloadFile = async function (url, path) {
-	const { createWriteStream } = require('fs');
+  const { createWriteStream } = require('fs');
 
-	const response = await axios({
-		method: 'GET',
-		responseType: 'stream',
-		url
-	});
+  let lastErr;
+  const maxRetries = 5;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let response;
+    try {
+      response = await axios({
+        method: 'GET',
+        responseType: 'stream',
+        url,
+        timeout: 30000,
+      });
+    } catch (e) {
+      lastErr = e;
+      const status = e.response && e.response.status;
+      if (status === 429) {
+        const wait = Math.min(5000 * attempt, 60000);
+        console.log(`rate limited while downloading ${url}, retrying in ${wait}ms...`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      throw e;
+    }
 
-	const writer = createWriteStream(path);
+    const writer = createWriteStream(path);
+    response.data.pipe(writer);
 
-	response.data.pipe(writer);
-
-	return new Promise((resolve, reject) => {
-		writer.on('finish', resolve);
-		writer.on('error', reject);
-	});
+    try {
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+        response.data.on('error', reject);
+      });
+      return;
+    } catch (e) {
+      lastErr = e;
+      try { writer.destroy(); } catch (_) {}
+      try { await fsPromises.unlink(path).catch(() => {}); } catch (_) {}
+      const status = response.status;
+      if (status === 429) {
+        const wait = Math.min(5000 * attempt, 60000);
+        console.log(`rate limited while downloading ${url}, retrying in ${wait}ms...`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new Error(`Failed to download ${url} after ${maxRetries} attempts`);
 };
 
 module.exports.getContent = async function(url) {

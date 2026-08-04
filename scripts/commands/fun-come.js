@@ -17,14 +17,18 @@ module.exports.config = {
 };
 
 module.exports.onLoad = async() => {
-    const { resolve } = global.nodemodule["path"];
-    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
-    const { downloadFile } = global.utils;
-    const dirMaterial = __dirname + `/cache/canvas/`;
-    const path = resolve(__dirname, 'cache/canvas', 'namtay.png');
-    if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
-    if (!existsSync(path)) await downloadFile("https://imgur.com/vcG4det.jpg", path);
-}
+    try {
+      const { resolve } = global.nodemodule["path"];
+      const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+      const { downloadFile } = global.utils;
+      const dirMaterial = __dirname + `/cache/canvas/`;
+      const path = resolve(__dirname, 'cache/canvas', 'namtay.png');
+      if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
+      if (!existsSync(path)) await downloadFile("https://i.ibb.co/whs3CrPJ/Dut71q-FVAAA7-Jbo.jpg", path);
+    } catch (e) {
+      console.log("fun-come: failed to load canvas material:", e);
+    }
+  }
 
 async function makeImage({ one, two }) {
     const fs = global.nodemodule["fs-extra"];

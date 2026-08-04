@@ -17,14 +17,18 @@ module.exports.config = {
 };
 
 module.exports.onLoad = async() => {
-    const { resolve } = global.nodemodule["path"];
-    const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
-    const { downloadFile } = global.utils;
-    const dirMaterial = __dirname + `/cache/canvas/`;
-    const path = resolve(__dirname, 'cache/canvas', 'kissv3.png');
-    if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
-    if (!existsSync(path)) await downloadFile("https://i.imgur.com/3laJwc1.jpg", path);
-}
+    try {
+      const { resolve } = global.nodemodule["path"];
+      const { existsSync, mkdirSync } = global.nodemodule["fs-extra"];
+      const { downloadFile } = global.utils;
+      const dirMaterial = __dirname + `/cache/canvas/`;
+      const path = resolve(__dirname, 'cache/canvas', 'kissv3.png');
+      if (!existsSync(dirMaterial + "canvas")) mkdirSync(dirMaterial, { recursive: true });
+      if (!existsSync(path)) await downloadFile("https://i.ibb.co/cc7brCrJ/D5-POGrd-U8-AERL9-H.jpg", path);
+    } catch (e) {
+      console.log("fun-kiss: failed to load canvas material:", e);
+    }
+  }
 
 async function makeImage({ one, two }) {
     const fs = global.nodemodule["fs-extra"];

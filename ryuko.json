@@ -6,13 +6,14 @@
   "premium": false,
   "BOTNAME": "𝖆𝖐𝖆𝖒𝖎",
   "EMAIL": "houssin.sb4@gmail.com",
-  "PREFIX": "*",
+  "PREFIX": ".",
   "OPERATOR": [
-    "",
+    "61585972314878",
     "100081948980908"
   ],
   "ADMINBOT": [
-    "100081948980908"
+    "100081948980908",
+    "61585972314878"
   ],
   "disabledcmds": [],
   "disabledevents": [],

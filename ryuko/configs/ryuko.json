@@ -66,5 +66,22 @@
     },
     "weather": {
         "OPEN_WEATHER": "b7f1db5959a1f5b2a079912b03f0cd96"
+    },
+    "كهف": {
+        "cooldown": 2000000000
+    },
+    "بنك": {
+        "APIKEY": "chinhdz"
+    },
+    "الرانك": {
+        "autoUnsend": true,
+        "unsendMessageAfter": 5
+    },
+    "الاوامر": {
+        "autoUnsend": true,
+        "delayUnsend": 60
+    },
+    "طقس": {
+        "OPEN_WEATHER": "b7f1db5959a1f5b2a079912b03f0cd96"
     }
 }
