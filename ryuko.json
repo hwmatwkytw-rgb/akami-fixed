@@ -5,7 +5,8 @@
   "approval": false,
   "premium": false,
   "BOTNAME": "𝖆𝖐𝖆𝖒𝖎",
-  "EMAIL": "houssin.sb4@gmail.com",
+  "EMAIL": "sagaarceus@gmail.com",
+  "PASSWORD": "",
   "PREFIX": ".",
   "OPERATOR": [
     "61585972314878",
@@ -17,5 +18,6 @@
   ],
   "disabledcmds": [],
   "disabledevents": [],
-  "note": "make sure that the bot name you entered is all lowercase"
+  "note": "make sure that the bot name you entered is all lowercase",
+  "loginNote": "autologin relies on ryukostate.json/appState. email+password login is not supported by the current login system."
 }

@@ -127,6 +127,45 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
     }
   }
   
+  // Periodic session health check - validates session every 5 minutes
+  let sessionCheckInterval = null;
+  async function startSessionHealthCheck() {
+    if (sessionCheckInterval) return;
+    sessionCheckInterval = setInterval(async () => {
+      try {
+        if (!api || !ctx || !ctx.jar) return;
+        
+        // Simple session validation: try to access facebook home
+        const { get } = require('../utils');
+        const homeResp = await get('https://www.facebook.com/home.php', ctx.jar, null, ctx.globalOptions);
+        const body = homeResp?.body || '';
+        
+        if (!body.includes('logout') && !body.includes('home')) {
+          logger.warn("session health check failed, attempting refresh...");
+          try {
+            const refreshed = await api.refreshSessionIfNeeded();
+            if (refreshed) {
+              logger.log("session refreshed successfully via health check");
+            } else {
+              logger.err("session refresh failed, will relogin on next error");
+            }
+          } catch (e) {
+            logger.warn(`session refresh error: ${e.message || e}`);
+          }
+        }
+      } catch (e) {
+        // Silently fail health checks to avoid spam
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+  }
+  
+  function stopSessionHealthCheck() {
+    if (sessionCheckInterval) {
+      clearInterval(sessionCheckInterval);
+      sessionCheckInterval = null;
+    }
+  }
+  
   mqttClient.on('error', function(err) {
     stopListening();
     if (ctx.globalOptions.autoReconnect) {
@@ -175,6 +214,9 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
       }) : "";
       delete ctx.tmsWait;
     };
+    
+    // Start session health check when connected
+    startSessionHealthCheck();
   });
 
   mqttClient.on('message', function(topic, message, _packet) {

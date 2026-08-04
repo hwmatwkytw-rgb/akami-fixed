@@ -211,53 +211,159 @@ async function loginHelper(appState, email, password, globalOptions, apiCustomiz
   let mainPromise = null;
   const jar = utils.getJar();
   logger(`deploying ${chalk.blueBright('login')} system`, "login");
-  if (appState) {
-    if (utils.getType(appState) === 'Array' && appState.some(c => c.name)) {
-      appState = appState.map(c => {
-        c.key = c.name;
-        delete c.name;
-        return c;
-      })
-    }
-    else if (utils.getType(appState) === 'String') {
-      const arrayAppState = [];
-      appState.split(';').forEach(c => {
-        const [key, value] = c.split('=');
-        arrayAppState.push({
-          key: (key || "").trim(),
-          value: (value || "").trim(),
-          domain: ".facebook.com",
-          path: "/",
-          expires: new Date().getTime() + 1000 * 60 * 60 * 24 * 365
+
+  async function tryAppStateLogin() {
+    if (!appState) return false;
+    try {
+      if (utils.getType(appState) === 'Array' && appState.some(c => c.name)) {
+        appState = appState.map(c => {
+          c.key = c.name;
+          delete c.name;
+          return c;
+        })
+      }
+      else if (utils.getType(appState) === 'String') {
+        const arrayAppState = [];
+        appState.split(';').forEach(c => {
+          const [key, value] = c.split('=');
+          arrayAppState.push({
+            key: (key || "").trim(),
+            value: (value || "").trim(),
+            domain: ".facebook.com",
+            path: "/",
+            expires: new Date().getTime() + 1000 * 60 * 60 * 24 * 365
+          });
         });
+        appState = arrayAppState;
+      }
+
+      appState.map(c => {
+        const str = c.key + "=" + c.value + "; expires=" + c.expires + "; domain=" + c.domain + "; path=" + c.path + ";";
+        jar.setCookie(str, "http://" + c.domain);
       });
-      appState = arrayAppState;
-    }
 
-    appState.map(c => {
-      const str = c.key + "=" + c.value + "; expires=" + c.expires + "; domain=" + c.domain + "; path=" + c.path + ";";
-      jar.setCookie(str, "http://" + c.domain);
-    });
-
-    // Load the main page.
-    mainPromise = utils
-      .get('https://www.facebook.com/', jar, null, globalOptions, { noRef: true })
-      .then(utils.saveCookies(jar));
-  } else {
-    if (email) {
-      throw "currently, the login method by email and password is no longer supported, please use the login method by appState";
-    }
-    else {
-      throw "no appstate given.";
+      // Load the main page.
+      mainPromise = utils
+        .get('https://www.facebook.com/', jar, null, globalOptions, { noRef: true })
+        .then(utils.saveCookies(jar));
+      return true;
+    } catch (e) {
+      logger.warn(`appState login failed: ${e.message || e}`);
+      return false;
     }
   }
 
-  api = {
+  async function tryEmailPasswordLogin() {
+    if (!email || !password) {
+      return { success: false, error: "no email/password provided for fallback login" };
+    }
+    try {
+      logger.warn(`trying email/password login fallback for ${email}`);
+      const loginPage = await utils.get('https://www.facebook.com/login.php', jar, null, globalOptions, { noRef: true });
+      const html = loginPage.body || '';
+      const lsd = utils.getFrom(html, '["LSD",[],{"token":"', '","') || '';
+      const jazoest = utils.getFrom(html, 'jazoest=', '",') || '';
+      const li = utils.getFrom(html, '"li":"', '"') || '';
+
+      if (!lsd) {
+        return { success: false, error: "could not extract login tokens from facebook" };
+      }
+
+      const form = {
+        email,
+        pass: password,
+        lsd,
+        jazoest,
+        li,
+        login_source: 'comet_headerless_login',
+        next: ''
+      };
+
+      const loginResp = await utils.post('https://www.facebook.com/login.php', jar, form, globalOptions, null, {
+        noRef: true,
+        Origin: 'https://www.facebook.com'
+      });
+
+      // save cookies after login attempt
+      await utils.saveCookies(jar)(loginResp);
+
+      const body = loginResp.body || '';
+      if (body.includes('checkpoint') || loginResp.request?.uri?.href?.includes('checkpoint')) {
+        return { success: false, error: "facebook checkpoint detected, please verify in browser" };
+      }
+
+      // verify we are actually logged in
+      const homeResp = await utils.get('https://www.facebook.com/home.php', jar, null, globalOptions);
+      const homeBody = homeResp.body || '';
+      if (!homeBody.includes('home') && !homeBody.includes('logout')) {
+        return { success: false, error: "email/password login did not succeed" };
+      }
+
+      return { success: true, html: homeBody };
+    } catch (e) {
+      return { success: false, error: e.message || String(e) };
+    }
+  }
+
+  async function validateSession() {
+    try {
+      const homeResp = await utils.get('https://www.facebook.com/home.php', jar, null, globalOptions);
+      const body = homeResp.body || '';
+      if (body.includes('logout') || body.includes('home')) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function refreshSessionIfNeeded() {
+    const isValid = await validateSession();
+    if (isValid) return true;
+    logger.warn("session invalid or expired, attempting refresh...");
+    if (email && password) {
+      const result = await tryEmailPasswordLogin();
+      if (result.success) {
+        logger.log("session refreshed successfully via email/password");
+        try {
+          const newAppState = api.getAppState();
+          if (newAppState && newAppState.length) {
+            loginData.appState = newAppState;
+            const fs = require('fs');
+            const path = require('path');
+            const statePath = path.join(__dirname, '../../botdata/ryukostate.json');
+            fs.writeFileSync(statePath, JSON.stringify(newAppState, null, 2));
+            logger.log("saved refreshed appState");
+          }
+        } catch (e) {
+          logger.warn(`could not save refreshed appState: ${e.message || e}`);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+   api = {
     setOptions: setOptions.bind(null, globalOptions),
     getAppState() {
       const appState = utils.getAppState(jar);
       return appState.filter((item, index, self) => self.findIndex((t) => { return t.key === item.key }) === index);
     }
+  };
+  
+  // expose refresh function to be called from outside
+  api.refreshSessionIfNeeded = refreshSessionIfNeeded;
+
+  const usedAppState = await tryAppStateLogin();
+
+  if (!usedAppState) {
+    const emailResult = await tryEmailPasswordLogin();
+    if (!emailResult.success) {
+      return callback(emailResult.error || "login failed", null);
+    }
+    // continue with email login html
   }
 
   mainPromise = mainPromise
@@ -337,11 +443,11 @@ async function login(loginData, options, callback) {
   setOptions(globalOptions, options);
   const wiegine = {
     relogin() {
-      loginws3();
+      loginws3(true);
     }
   }
 
-  async function loginws3() {
+  async function loginws3(isRelogin = false) {
     loginHelper(loginData?.appState, loginData?.email, loginData?.password, globalOptions, wiegine,
       (loginError, loginApi) => {
         if (loginError) {
@@ -349,6 +455,34 @@ async function login(loginData, options, callback) {
             logger.warn("failed after dismiss behavior, will relogin automatically.");
             isBehavior = false;
             loginws3();
+          }
+          // fallback to email/password if appState fails and we have credentials
+          if (!isRelogin && loginData?.email && loginData?.password) {
+            logger.warn("appState login failed, trying email/password fallback...");
+            loginHelper(null, loginData?.email, loginData?.password, globalOptions, wiegine,
+              (emailError, emailApi) => {
+                if (emailError) {
+                  logger.err(emailError);
+                  callback(emailError);
+                } else {
+                  // save new appState from email login
+                  try {
+                    const newAppState = emailApi.getAppState();
+                    if (newAppState && newAppState.length) {
+                      loginData.appState = newAppState;
+                      const fs = require('fs');
+                      const path = require('path');
+                      const statePath = path.join(__dirname, '../../botdata/ryukostate.json');
+                      fs.writeFileSync(statePath, JSON.stringify(newAppState, null, 2));
+                      logger.log(`saved new appState after email/password login`);
+                    }
+                  } catch (e) {
+                    logger.warn(`could not save appState: ${e.message || e}`);
+                  }
+                  callback(null, emailApi);
+                }
+              });
+            return;
           }
           logger.err(loginError);
           callback(loginError);
